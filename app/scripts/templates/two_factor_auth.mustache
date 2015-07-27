@@ -1,0 +1,54 @@
+<div id="main-content" class="card">
+  <header>
+    <h1 id="fxa-signup-header">
+      {{#serviceName}}
+        <!-- L10N: For languages structured like English, the second phrase can read "to continue to %(serviceName)s" -->
+        {{#t}}Set up Two Factor Authentication{{/t}} <span class="service">{{#t}}Continue to %(serviceName)s{{/t}}</span>
+      {{/serviceName}}
+      {{^serviceName}}
+        {{#t}}Set up Two Factor Authentication{{/t}}
+      {{/serviceName}}
+    </h1>
+  </header>
+
+  <section>
+    {{#error}}
+      <div class="error visible">{{ error }}</div>
+    {{/error}}
+
+    {{^error}}
+    <div class="error"></div>
+    <div class="success"></div>
+
+    <form novalidate>
+      <div class="input-row">
+
+      </div>
+
+      <div class="input-row otp-row">
+        <input id="otp" type="text" placeholder="{{#t}}One Time Password{{/t}}" value="{{ otp }}" pattern="\d{6}" required  {{#shouldFocusOTP}}autofocus{{/shouldFocusOTP}} />
+        <div class="input-help input-help-focused">{{#t}}Enter your 6 digit OTP{{/t}}</div>
+
+      </div>
+
+      <div id="coppa">
+      </div>
+
+      <div class="privacy-links">
+        {{#t}}By proceeding, you agree to the <a id="fxa-tos" href="/legal/terms">Terms of Service</a> and <a id="fxa-pp" href="/legal/privacy">Privacy Notice</a> of Firefox cloud services.{{/t}}
+      </div>
+
+      <div class="button-row">
+        <button id="submit-btn" type="submit" class="disabled">{{#t}}Submit{{/t}}</button>
+      </div>
+
+      {{#isSync}}
+        <div class="input-row customize-sync-row">
+          <label><input id="customize-sync" type="checkbox" class="customize-sync" {{#isCustomizeSyncChecked}}checked="checked"{{/isCustomizeSyncChecked}}> {{#t}}Choose what to sync{{/t}}</label>
+        </div>
+      {{/isSync}}
+    </form>
+
+    {{/error}}
+  </section>
+</div>

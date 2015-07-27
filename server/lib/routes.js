@@ -89,6 +89,7 @@ module.exports = function (config, i18n) {
       '/settings/avatar/camera',
       '/settings/avatar/gravatar_permissions',
       '/settings/communication_preferences',
+      '/settings/two_factor_auth',
       '/change_password',
       '/legal',
       '/cannot_create_account',

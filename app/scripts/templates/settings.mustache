@@ -18,6 +18,11 @@
     <ul class="links">
       {{#communicationPrefsVisible}}
       <li>
+        <a id="two-factor" href="/settings/two_factor_auth">{{#t}}Two Factor Authentication{{/t}}</a>
+      </li>
+      {{/communicationPrefsVisible}}
+      {{#communicationPrefsVisible}}
+      <li>
         <a id="communications" href="/settings/communication_preferences">{{#t}}Communication preferences{{/t}}</a>
       </li>
       {{/communicationPrefsVisible}}
