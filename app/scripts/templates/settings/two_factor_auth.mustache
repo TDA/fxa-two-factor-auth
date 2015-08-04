@@ -22,20 +22,14 @@
 
     <form novalidate>
       <div class="input-row">
-
+        <div class="input-help">{{#t}}Please Scan the QR Code with your Google Authenticator app.{{/t}}</div>
+        <div id="qrcode"></div>
       </div>
 
       <div class="input-row otp-row">
         <input id="otp" type="text" placeholder="{{#t}}One Time Password{{/t}}" value="{{ otp }}" pattern="\d{6}" required  {{#shouldFocusOTP}}autofocus{{/shouldFocusOTP}} />
         <div class="input-help input-help-focused">{{#t}}Enter your 6 digit OTP{{/t}}</div>
 
-      </div>
-
-      <div id="coppa">
-      </div>
-
-      <div class="privacy-links">
-        {{#t}}By proceeding, you agree to the <a id="fxa-tos" href="/legal/terms">Terms of Service</a> and <a id="fxa-pp" href="/legal/privacy">Privacy Notice</a> of Firefox cloud services.{{/t}}
       </div>
 
       <div class="button-row">

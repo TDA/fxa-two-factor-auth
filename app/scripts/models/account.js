@@ -40,6 +40,7 @@ define([
     // session. Data migration within the client goes one way. It's easy to
     // move forward, very hard to move back.
     sessionTokenContext: undefined,
+    twofa: undefined,
     uid: undefined,
     verified: undefined
   };

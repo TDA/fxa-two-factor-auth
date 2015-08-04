@@ -4,25 +4,25 @@
 /* eslint-disable */
 define([
   'cocktail',
-  'underscore',
+  'sjcl',
   'lib/promise',
   'views/base',
   'views/form',
-  'stache!templates/two_factor_auth',
+  'stache!templates/settings/two_factor_auth',
   'lib/auth-errors',
+  'lib/twofa',
   'lib/url',
   'views/mixins/password-mixin',
   'views/mixins/service-mixin',
   'views/mixins/checkbox-mixin',
   'views/mixins/resume-token-mixin'
 ],
-function (Cocktail, _, p, BaseView, FormView, Template, AuthErrors,
-      Url, PasswordMixin, ServiceMixin, CheckboxMixin, ResumeTokenMixin) {
+function (Cocktail, sjcl, p, BaseView, FormView, Template, AuthErrors,
+      TwoFA, Url, PasswordMixin, ServiceMixin, CheckboxMixin, ResumeTokenMixin) {
   'use strict';
 
   var t = BaseView.t;
   // have to escape amdcheck, will rm later
-  var _ = _;
   var url = Url;
 
   var View = FormView.extend({
@@ -38,14 +38,22 @@ function (Cocktail, _, p, BaseView, FormView, Template, AuthErrors,
     },
 
     beforeRender: function () {
+      this.OTP = TwoFA(sjcl.random.randomWords(1,0));
       return FormView.prototype.beforeRender.call(this);
     },
 
     afterRender: function () {
       var self = this;
-
+      var qr = qrcode(10, 'M');
+      qr.addData(this.OTP.totpURL);
+      qr.make();
+      var imgData = qr.createImgTag(4);
+      self.$el.find('#qrcode').html(imgData);
       self.logScreenEvent('email-optin.visible.' +
           String(self._isEmailOptInEnabled()));
+      console.dir(this);
+      console.dir(self);
+      console.log(self === this);
     },
 
     afterVisible: function () {
