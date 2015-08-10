@@ -1,154 +1,3 @@
-define([], function (){
-  var OTP = (function (){
-    'use strict';
-    var Crypto = require('crypto');
-    var Base32 = require('thirty-two');
-    function OTP(options) {
-      /*eslint complexity: [2,10] */
-      if ('string' === typeof options) return OTP.parse(options);
-      if (!(this instanceof OTP)) return new OTP(options);
-      options = clone(options || {});
-      options.name = String(options.name || 'OTP-Authentication').split(/[^\w|_|-|@]/).join('');
-      options.keySize =  isNaN(options.keySize) ? 32 : options.keySize;
-      options.codeLength = isNaN(options.codeLength) ? 6 : options.codeLength;
-      options.secret = options.secret || generateKey(options.keySize);
-      options.epoch = (isNaN(options.epoch) ? 0 : options.epoch) * 1000;
-      options.timeSlice = (isNaN(options.timeSlice) ? 30 : options.timeSlice) * 1000;
-      Object.keys(OTP.prototype).forEach(function(method) {
-        if ('function' !== typeof OTP.prototype[method]) return;
-        Object.defineProperty(this, method, {
-          value: OTP.prototype[method].bind(this, options)
-        });
-      }.bind(this));
-
-      Object.defineProperty(this, 'secret', {
-        value:options.secret,
-        enumerable:true
-      });
-      Object.defineProperty(this, 'totpURL', {
-        value:['otpauth://totp/', options.name, '?secret=', encodeURIComponent(this.secret) ].join(''),
-        enumerable:true
-      });
-      Object.defineProperty(this, 'hotpURL', {
-        value:['otpauth://hotp/', options.name, '?secret=', encodeURIComponent(this.secret) ].join(''),
-        enumerable:true
-      });
-    }
-
-    function generateKey(length) {
-      var set = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXTZabcdefghiklmnopqrstuvwxyz!@#$%^&*()<>?/[]{},.:;';
-      var res = '';
-      while(res.length < length) {
-        res += set[Math.floor(Math.random() * set.length)];
-      }
-      return Base32.encode(res).replace(/=/g, '');;
-    }
-
-    OTP.parse = function(str, options) {
-      options = clone(options || {});
-      str = String(str || '');
-      var url = /^otpauth:\/\/[t|h]opt\/([\s|\S]+?)\?secret=([\s|\S]+)$/.exec(str);
-      if (url) {
-        options.name = url[1];
-        options.secret = url[2];
-      } else {
-        options.secret = str;
-      }
-      return new OTP(options);
-    };
-
-    OTP.prototype.hotp = function(options, counter) {
-      var hmac = Crypto.createHmac('sha1', new Buffer(Base32.decode(options.secret)));
-      hmac = new Buffer(hmac.update(UInt64Buffer(counter)).digest('hex'), 'hex');
-      var offset = hmac[19] & 0xf;
-      var code = String((hmac[offset] & 0x7f) << 24 | (hmac[offset + 1] & 0xff) << 16 | (hmac[offset + 2] & 0xff) << 8 | (hmac[offset + 3] & 0xff));
-      code = ((new Array(options.codeLength + 1)).join('0')+code).slice(-1 * options.codeLength);
-      return code;
-    };
-
-    function wordToByteArray(wordArray) {
-      var byteArray = [], word, i, j;
-      for (i = 0; i < wordArray.length; ++i) {
-          word = wordArray[i];
-          for (j = 3; j >= 0; --j) {
-              byteArray.push(((word >> 8 * j) & 0xFF).toString(16));
-          }
-      }
-      return byteArray;
-    }
-    /*
-    function UInt64Buffer(num) {
-      var res = [];
-      console.log(res, num);
-      while (res.length < 8) {
-        res.unshift(num & 0xFF);
-        num = num >> 8;
-      }
-      console.log(res, num);
-      return res;
-    }
-    */
-    OTP.prototype.totp = function(options) {
-      var now = isNaN(options.now) ? Date.now() : options.now;
-      var counter = Math.floor((now - options.epoch) / options.timeSlice);
-      return this.hotp(counter);
-    };
-    OTP.prototype.toString = function() {
-      return '[object OTP]';
-    };
-    OTP.classID = 'OTP{@phidelta}';
-    OTP.prototype.toJSON = function(options) {
-      var res = {
-        'class':OTP.classID,
-        name:options.name,
-        keySize:options.keySize,
-        codeLength:options.codeLength,
-        secret:this.secret,
-        epoch:options.epoch / 1000,
-        timeSlice:options.timeSlice / 1000
-      };
-      return res;
-    };
-    OTP.reviveJSON = function(key, val) {
-      if (('object' !== typeof val) || (null === val) || (val['class'] !== OTP.classID)) return val;
-      return OTP(val);
-    };
-
-    function clone(obj) {
-      if ('object' !== typeof obj) {
-        return obj;
-      } else if (Array.isArray(obj)) {
-        return obj.map(clone);
-      } else if (obj instanceof Date) {
-        return new Date(obj.getTime());
-      }
-
-      var res = {};
-      Object.keys(obj).forEach(function(key) {
-        res[key] = clone(obj[key]);
-      });
-      return res;
-    };
-    return OTP;
-  })();
-
-  return function (key) {
-    key = Base32.encode(key.toString(2));
-    console.log(key);
-    var options = {
-      name: 'Firefox Accounts', // A name used in generating URLs
-      keySize: 32, // The size of the OTP-Key (default 32)
-      codeLength: 6, // The length of the code generated (default 6)
-      secret: key, // The secret (either a Buffer of Base32-encoded String)
-      epoch: 0, // The seconds since Unix-Epoch to use as a base for calculating the TOTP (default 0)
-      timeSlice: 30 // The timeslice to use for calculating counter from time in seconds (default 30)
-    };
-    // Most of the options can be set to defaults, so basically just need to
-    // set the name and the key for our purpose. Just letting the others be there
-    // in case we need something other than the default.
-    return OTP(options);
-  };
-});
 
 //---------------------------------------------------------------------
 //
@@ -167,7 +16,7 @@ define([], function (){
 //
 //---------------------------------------------------------------------
 
-var qrcode = function() {
+var qrcode = (function() {
 
   //---------------------------------------------------------------------
   // qrcode
@@ -235,8 +84,8 @@ var qrcode = function() {
           if (col + c <= -1 || _moduleCount <= col + c) continue;
 
           if ( (0 <= r && r <= 6 && (c == 0 || c == 6) )
-              || (0 <= c && c <= 6 && (r == 0 || r == 6) )
-              || (2 <= r && r <= 4 && 2 <= c && c <= 4) ) {
+            || (0 <= c && c <= 6 && (r == 0 || r == 6) )
+            || (2 <= r && r <= 4 && 2 <= c && c <= 4) ) {
             _modules[row + r][col + c] = true;
           } else {
             _modules[row + r][col + c] = false;
@@ -302,7 +151,7 @@ var qrcode = function() {
             for (var c = -2; c <= 2; c += 1) {
 
               if (r == -2 || r == 2 || c == -2 || c == 2
-                  || (r == 0 && c == 0) ) {
+                || (r == 0 && c == 0) ) {
                 _modules[row + r][col + c] = true;
               } else {
                 _modules[row + r][col + c] = false;
@@ -826,25 +675,25 @@ var qrcode = function() {
 
       switch (maskPattern) {
 
-      case QRMaskPattern.PATTERN000 :
-        return function(i, j) { return (i + j) % 2 == 0; };
-      case QRMaskPattern.PATTERN001 :
-        return function(i, j) { return i % 2 == 0; };
-      case QRMaskPattern.PATTERN010 :
-        return function(i, j) { return j % 3 == 0; };
-      case QRMaskPattern.PATTERN011 :
-        return function(i, j) { return (i + j) % 3 == 0; };
-      case QRMaskPattern.PATTERN100 :
-        return function(i, j) { return (Math.floor(i / 2) + Math.floor(j / 3) ) % 2 == 0; };
-      case QRMaskPattern.PATTERN101 :
-        return function(i, j) { return (i * j) % 2 + (i * j) % 3 == 0; };
-      case QRMaskPattern.PATTERN110 :
-        return function(i, j) { return ( (i * j) % 2 + (i * j) % 3) % 2 == 0; };
-      case QRMaskPattern.PATTERN111 :
-        return function(i, j) { return ( (i * j) % 3 + (i + j) % 2) % 2 == 0; };
+        case QRMaskPattern.PATTERN000 :
+          return function(i, j) { return (i + j) % 2 == 0; };
+        case QRMaskPattern.PATTERN001 :
+          return function(i, j) { return i % 2 == 0; };
+        case QRMaskPattern.PATTERN010 :
+          return function(i, j) { return j % 3 == 0; };
+        case QRMaskPattern.PATTERN011 :
+          return function(i, j) { return (i + j) % 3 == 0; };
+        case QRMaskPattern.PATTERN100 :
+          return function(i, j) { return (Math.floor(i / 2) + Math.floor(j / 3) ) % 2 == 0; };
+        case QRMaskPattern.PATTERN101 :
+          return function(i, j) { return (i * j) % 2 + (i * j) % 3 == 0; };
+        case QRMaskPattern.PATTERN110 :
+          return function(i, j) { return ( (i * j) % 2 + (i * j) % 3) % 2 == 0; };
+        case QRMaskPattern.PATTERN111 :
+          return function(i, j) { return ( (i * j) % 3 + (i + j) % 2) % 2 == 0; };
 
-      default :
-        throw new Error('bad maskPattern:' + maskPattern);
+        default :
+          throw new Error('bad maskPattern:' + maskPattern);
       }
     };
 
@@ -863,12 +712,12 @@ var qrcode = function() {
         // 1 - 9
 
         switch(mode) {
-        case QRMode.MODE_NUMBER    : return 10;
-        case QRMode.MODE_ALPHA_NUM : return 9;
-        case QRMode.MODE_8BIT_BYTE : return 8;
-        case QRMode.MODE_KANJI     : return 8;
-        default :
-          throw new Error('mode:' + mode);
+          case QRMode.MODE_NUMBER    : return 10;
+          case QRMode.MODE_ALPHA_NUM : return 9;
+          case QRMode.MODE_8BIT_BYTE : return 8;
+          case QRMode.MODE_KANJI     : return 8;
+          default :
+            throw new Error('mode:' + mode);
         }
 
       } else if (type < 27) {
@@ -876,12 +725,12 @@ var qrcode = function() {
         // 10 - 26
 
         switch(mode) {
-        case QRMode.MODE_NUMBER    : return 12;
-        case QRMode.MODE_ALPHA_NUM : return 11;
-        case QRMode.MODE_8BIT_BYTE : return 16;
-        case QRMode.MODE_KANJI     : return 10;
-        default :
-          throw new Error('mode:' + mode);
+          case QRMode.MODE_NUMBER    : return 12;
+          case QRMode.MODE_ALPHA_NUM : return 11;
+          case QRMode.MODE_8BIT_BYTE : return 16;
+          case QRMode.MODE_KANJI     : return 10;
+          default :
+            throw new Error('mode:' + mode);
         }
 
       } else if (type < 41) {
@@ -889,12 +738,12 @@ var qrcode = function() {
         // 27 - 40
 
         switch(mode) {
-        case QRMode.MODE_NUMBER    : return 14;
-        case QRMode.MODE_ALPHA_NUM : return 13;
-        case QRMode.MODE_8BIT_BYTE : return 16;
-        case QRMode.MODE_KANJI     : return 12;
-        default :
-          throw new Error('mode:' + mode);
+          case QRMode.MODE_NUMBER    : return 14;
+          case QRMode.MODE_ALPHA_NUM : return 13;
+          case QRMode.MODE_8BIT_BYTE : return 16;
+          case QRMode.MODE_KANJI     : return 12;
+          default :
+            throw new Error('mode:' + mode);
         }
 
       } else {
@@ -964,12 +813,12 @@ var qrcode = function() {
       for (var row = 0; row < moduleCount; row += 1) {
         for (var col = 0; col < moduleCount - 6; col += 1) {
           if (qrcode.isDark(row, col)
-              && !qrcode.isDark(row, col + 1)
-              &&  qrcode.isDark(row, col + 2)
-              &&  qrcode.isDark(row, col + 3)
-              &&  qrcode.isDark(row, col + 4)
-              && !qrcode.isDark(row, col + 5)
-              &&  qrcode.isDark(row, col + 6) ) {
+            && !qrcode.isDark(row, col + 1)
+            &&  qrcode.isDark(row, col + 2)
+            &&  qrcode.isDark(row, col + 3)
+            &&  qrcode.isDark(row, col + 4)
+            && !qrcode.isDark(row, col + 5)
+            &&  qrcode.isDark(row, col + 6) ) {
             lostPoint += 40;
           }
         }
@@ -978,12 +827,12 @@ var qrcode = function() {
       for (var col = 0; col < moduleCount; col += 1) {
         for (var row = 0; row < moduleCount - 6; row += 1) {
           if (qrcode.isDark(row, col)
-              && !qrcode.isDark(row + 1, col)
-              &&  qrcode.isDark(row + 2, col)
-              &&  qrcode.isDark(row + 3, col)
-              &&  qrcode.isDark(row + 4, col)
-              && !qrcode.isDark(row + 5, col)
-              &&  qrcode.isDark(row + 6, col) ) {
+            && !qrcode.isDark(row + 1, col)
+            &&  qrcode.isDark(row + 2, col)
+            &&  qrcode.isDark(row + 3, col)
+            &&  qrcode.isDark(row + 4, col)
+            && !qrcode.isDark(row + 5, col)
+            &&  qrcode.isDark(row + 6, col) ) {
             lostPoint += 40;
           }
         }
@@ -1395,16 +1244,16 @@ var qrcode = function() {
     var getRsBlockTable = function(typeNumber, errorCorrectLevel) {
 
       switch(errorCorrectLevel) {
-      case QRErrorCorrectLevel.L :
-        return RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 0];
-      case QRErrorCorrectLevel.M :
-        return RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 1];
-      case QRErrorCorrectLevel.Q :
-        return RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 2];
-      case QRErrorCorrectLevel.H :
-        return RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 3];
-      default :
-        return undefined;
+        case QRErrorCorrectLevel.L :
+          return RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 0];
+        case QRErrorCorrectLevel.M :
+          return RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 1];
+        case QRErrorCorrectLevel.Q :
+          return RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 2];
+        case QRErrorCorrectLevel.H :
+          return RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 3];
+        default :
+          return undefined;
       }
     };
 
@@ -1414,7 +1263,7 @@ var qrcode = function() {
 
       if (typeof rsBlock == 'undefined') {
         throw new Error('bad rs block @ typeNumber:' + typeNumber +
-            '/errorCorrectLevel:' + errorCorrectLevel);
+          '/errorCorrectLevel:' + errorCorrectLevel);
       }
 
       var length = rsBlock.length / 3;
@@ -1963,4 +1812,4 @@ var qrcode = function() {
   // returns qrcode function.
 
   return qrcode;
-}();
+})();

@@ -90,6 +90,7 @@ module.exports = function (config, i18n) {
       '/settings/avatar/gravatar_permissions',
       '/settings/communication_preferences',
       '/settings/two_factor_auth',
+      '/settings/two_factor_auth_success',
       '/change_password',
       '/legal',
       '/cannot_create_account',

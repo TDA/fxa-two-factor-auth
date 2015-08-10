@@ -1,0 +1,19 @@
+<div id="main-content" class="card">
+  <header>
+    <h1 id="fxa-two-factor-header">
+      {{#success}}
+        {{^serviceName}}
+          {{#t}}Two Factor Authentication Complete{{/t}}
+        {{/serviceName}}
+      {{/success}}
+    </h1>
+  </header>
+
+  <section>
+
+    {{#success}}
+      <div class="otp-success hidden">Two Factor Authentication successfully set up.</div>
+    {{/success}}
+
+  </section>
+</div>

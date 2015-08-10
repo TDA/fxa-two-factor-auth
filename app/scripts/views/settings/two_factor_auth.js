@@ -10,20 +10,17 @@ define([
   'views/form',
   'stache!templates/settings/two_factor_auth',
   'lib/auth-errors',
-  'lib/twofa',
-  'lib/url',
+  'lib/qrcode',
+  'lib/twofabundle',
   'views/mixins/password-mixin',
   'views/mixins/service-mixin',
-  'views/mixins/checkbox-mixin',
-  'views/mixins/resume-token-mixin'
+  'views/mixins/checkbox-mixin'
 ],
-function (Cocktail, sjcl, p, BaseView, FormView, Template, AuthErrors,
-      TwoFA, Url, PasswordMixin, ServiceMixin, CheckboxMixin, ResumeTokenMixin) {
+function (Cocktail, sjcl, p, BaseView, FormView, Template, AuthErrors, QRCode,
+      TwoFA, PasswordMixin, ServiceMixin, CheckboxMixin) {
   'use strict';
 
   var t = BaseView.t;
-  // have to escape amdcheck, will rm later
-  var url = Url;
 
   var View = FormView.extend({
     template: Template,
@@ -33,12 +30,13 @@ function (Cocktail, sjcl, p, BaseView, FormView, Template, AuthErrors,
       options = options || {};
 
       this._formPrefill = options.formPrefill;
-      this._coppa = options.coppa;
       this._able = options.able;
     },
 
     beforeRender: function () {
-      this.OTP = TwoFA(sjcl.random.randomWords(1,0));
+      var randomWord = sjcl.random.randomWords(1,0);
+      this.OTP = TwoFA(randomWord);
+      this._success = this.ephemeralMessages.get('success');
       return FormView.prototype.beforeRender.call(this);
     },
 
@@ -49,11 +47,10 @@ function (Cocktail, sjcl, p, BaseView, FormView, Template, AuthErrors,
       qr.make();
       var imgData = qr.createImgTag(4);
       self.$el.find('#qrcode').html(imgData);
-      self.logScreenEvent('email-optin.visible.' +
-          String(self._isEmailOptInEnabled()));
-      console.dir(this);
-      console.dir(self);
-      console.log(self === this);
+      //console.dir(self);
+      this.secretKey = this.OTP.secret;
+      console.log("OTP generated is", this.OTP.totp());
+      console.log('the secret key is', this.secretKey);
     },
 
     afterVisible: function () {
@@ -61,52 +58,61 @@ function (Cocktail, sjcl, p, BaseView, FormView, Template, AuthErrors,
     },
 
     events: {
-      'blur input.email': 'suggestEmail'
+      'blur input.email': 'suggestEmail',
+      'keyup input.otp': '_validateOTP'
     },
 
     context: function () {
+    },
+
+    _displayError: function(){
+      var self = this;
+      self.$el.find('.otp-help').removeClass('hidden');
+      self.disableForm();
+    },
+
+    _validateOTP: function () {
+      var self = this;
+      var inputOTP = self.$el.find('.otp').val();
+      if (inputOTP.length === 6 && ! isNaN(inputOTP)) {
+        self.enableForm();
+      }
+    },
+
+    _isValidOTP: function(inputOTP){
+      if(inputOTP === this.OTP.totp()) {
+        return true;
+      }
+      return false;
+    },
+
+    _twofaSuccess: function () {
+      var self = this;
+      self._success = 'true';
+      //self.navigate();
+      self.ephemeralMessages.set('success', self._success);
+      return self.render();
+      //self.navigate('settings/two_factor_auth_success', {success: 'true'});
+      //self.$el.find('.otp-success').removeClass('hidden');
     },
 
     beforeDestroy: function () {
     },
 
     isValidEnd: function () {
-      if (this._isEmailSameAsBouncedEmail()) {
-        return false;
-      }
-
-      if (this._isEmailFirefoxDomain()) {
-        return false;
-      }
-
-      if (! this._coppa.isValid()) {
-        return false;
-      }
-
       return FormView.prototype.isValidEnd.call(this);
-    },
-
-    showValidationErrorsEnd: function () {
-      if (this._isEmailSameAsBouncedEmail()) {
-        this.showValidationError('input[type=email]',
-                AuthErrors.toError('DIFFERENT_EMAIL_REQUIRED'));
-      } else if (this._isEmailFirefoxDomain()) {
-        this.showValidationError('input[type=email]',
-                AuthErrors.toError('DIFFERENT_EMAIL_REQUIRED_FIREFOX_DOMAIN'));
-      } else {
-        this._coppa.showValidationErrors();
-      }
     },
 
     submit: function () {
       var self = this;
+      var inputOTP = self.$el.find('.otp').val();
       return p()
         .then(function () {
-          if (! self._isUserOldEnough()) {
-            return self._cannotCreateAccount();
+          if (! self._isValidOTP(inputOTP)) {
+            self._displayError();
+            return self.disableForm();
           }
-
-          return self._initAccount();
+          return self._twofaSuccess();
         });
     },
 
@@ -144,17 +150,6 @@ function (Cocktail, sjcl, p, BaseView, FormView, Template, AuthErrors,
 
       // re-throw error, it will be handled at a lower level.
       throw err;
-    },
-
-    _suggestSignIn: function (err) {
-      err.forceMessage = t('Account already exists. <a href="/signin">Sign in</a>');
-      return this.displayErrorUnsafe(err);
-    },
-
-    _isEmailOptInEnabled: function () {
-      return !! this._able.choose('communicationPrefsVisible', {
-        lang: this.navigator.language
-      });
     }
   });
 
@@ -162,7 +157,6 @@ function (Cocktail, sjcl, p, BaseView, FormView, Template, AuthErrors,
     View,
     CheckboxMixin,
     PasswordMixin,
-    ResumeTokenMixin,
     ServiceMixin
   );
 
