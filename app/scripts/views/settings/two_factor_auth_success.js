@@ -23,9 +23,6 @@ function (p, BaseView, FormView, Template) {
 
     afterVisible: function () {
       return FormView.prototype.afterVisible.call(this);
-    },
-
-    context: function () {
     }
   });
   return View;

@@ -34,23 +34,42 @@ function (Cocktail, sjcl, p, BaseView, FormView, Template, AuthErrors, QRCode,
     },
 
     beforeRender: function () {
-      var randomWord = sjcl.random.randomWords(1,0);
-      this.OTP = TwoFA(randomWord);
-      this._success = this.ephemeralMessages.get('success');
+      var url = this.user.getSignedInAccount().get('sessionToken') ?
+                  '/settings/two_factor_auth' : '/signup';
+      this.navigate(url, { trigger: true, replace: true });
+
+      var account = this.user.getSignedInAccount();
+      if (account.isTwoFATurnedOn()) {
+        this.secretKey = account.get('secretKey');
+        console.log(this.secretKey);
+        this.OTP = TwoFA(this.secretKey, true);
+        this.twoFA = true;
+      }
+      else {
+        // we seriously need to unify the libraries for crypto
+        var randomWord = sjcl.random.randomWords(1,0);
+        this.OTP = TwoFA(randomWord, false);
+      }
       return FormView.prototype.beforeRender.call(this);
     },
 
     afterRender: function () {
       var self = this;
-      var qr = qrcode(10, 'M');
-      qr.addData(this.OTP.totpURL);
-      qr.make();
-      var imgData = qr.createImgTag(4);
-      self.$el.find('#qrcode').html(imgData);
-      //console.dir(self);
-      this.secretKey = this.OTP.secret;
-      console.log("OTP generated is", this.OTP.totp());
-      console.log('the secret key is', this.secretKey);
+      if(self.secretKey === undefined) {
+        // first time setup, so generate a
+        // QRCode and store the secret key
+        var qr = qrcode(10, 'M');
+        qr.addData(self.OTP.totpURL);
+        qr.make();
+        var imgData = qr.createImgTag(4);
+        self.$el.find('#qrcode').html(imgData);
+        //console.dir(self);
+        self.secretKey = self.OTP.secret;
+      } else {
+        self.$el.find('.qr-row').hide();
+        // just verification is required, 2fa was already setup
+      }
+      console.log("OTP generated is", self.OTP.totp());
     },
 
     afterVisible: function () {
@@ -88,12 +107,17 @@ function (Cocktail, sjcl, p, BaseView, FormView, Template, AuthErrors, QRCode,
 
     _twofaSuccess: function () {
       var self = this;
-      self._success = 'true';
-      //self.navigate();
-      self.ephemeralMessages.set('success', self._success);
-      return self.render();
-      //self.navigate('settings/two_factor_auth_success', {success: 'true'});
-      //self.$el.find('.otp-success').removeClass('hidden');
+      var account = self.getSignedInAccount();
+      if (! self.twoFA) {
+        // store secret key, and turn on 2fa
+        account.turnOnTwoFA(self.secretKey);
+        self.user.setAccount(account);
+        self.navigate('settings/two_factor_auth_success');
+      } else {
+        // verification was successful, sign the user in.
+        // redirect to settings
+        self.navigate('settings');
+      }
     },
 
     beforeDestroy: function () {
@@ -114,42 +138,6 @@ function (Cocktail, sjcl, p, BaseView, FormView, Template, AuthErrors, QRCode,
           }
           return self._twofaSuccess();
         });
-    },
-
-    onSignUpSuccess: function (account) {
-      var self = this;
-      if (account.get('verified')) {
-        // user was pre-verified, notify the broker.
-        return self.broker.afterSignIn(account)
-          .then(function (result) {
-            if (! (result && result.halt)) {
-              self.navigate('signup_complete');
-            }
-          });
-      } else {
-        self.navigate('confirm', {
-          data: {
-            account: account
-          }
-        });
-      }
-    },
-
-    signUpError: function (err) {
-      var self = this;
-      // Account already exists. No attempt is made at signing the
-      // user in directly, instead, point the user to the signin page
-      // where the entered email/password will be prefilled.
-      if (AuthErrors.is(err, 'ACCOUNT_ALREADY_EXISTS')) {
-        return self._suggestSignIn(err);
-      } else if (AuthErrors.is(err, 'USER_CANCELED_LOGIN')) {
-        self.logEvent('login.canceled');
-        // if user canceled login, just stop
-        return;
-      }
-
-      // re-throw error, it will be handled at a lower level.
-      throw err;
     }
   });
 

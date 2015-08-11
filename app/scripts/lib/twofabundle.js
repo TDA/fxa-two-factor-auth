@@ -6170,9 +6170,11 @@ define([], function (){
     return OTP;
   })();
 
-  return function (key) {
-    var Base32 = require('thirty-two');
-    key = Base32.encode(key.toString(2)).toString();
+  return function (key, isEncoded) {
+    if (! isEncoded) {
+      var Base32 = require('thirty-two');
+      key = Base32.encode(key.toString(2)).toString();
+    }
     var options = {
       name: 'Firefox Accounts', // A name used in generating URLs
       keySize: 32, // The size of the OTP-Key (default 32)

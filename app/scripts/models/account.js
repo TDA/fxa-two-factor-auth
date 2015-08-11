@@ -28,6 +28,7 @@ define([
     hadProfileImageSetBefore: undefined,
     profileImageId: undefined,
     profileImageUrl: undefined,
+    secretKey: undefined,
     sessionToken: undefined,
     // Hint for future code spelunkers. sessionTokenContext is a misnomer,
     // what the field is really used for is to indicate whether the
@@ -193,6 +194,15 @@ define([
         // had a custom profile image.
         this.set('hadProfileImageSetBefore', true);
       }
+    },
+
+    turnOnTwoFA: function (key) {
+      this.set('secretKey', key);
+      this.set('twofa', true);
+    },
+
+    isTwoFATurnedOn: function () {
+      return this.get('twofa');
     },
 
     fetchCurrentProfileImage: function () {
