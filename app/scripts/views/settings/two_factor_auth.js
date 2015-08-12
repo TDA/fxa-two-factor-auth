@@ -67,6 +67,8 @@ function (Cocktail, sjcl, p, BaseView, FormView, Template, AuthErrors, QRCode,
         self.secretKey = self.OTP.secret;
       } else {
         self.$el.find('.qr-row').hide();
+        self.$el.find('#fxa-two-factor-setup-header').hide();
+        self.$el.find('#fxa-two-factor-verify-header').show();
         // just verification is required, 2fa was already setup
       }
       console.log("OTP generated is", self.OTP.totp());

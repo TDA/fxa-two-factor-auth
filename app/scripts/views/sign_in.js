@@ -171,7 +171,7 @@ function (Cocktail, p, BaseView, FormView, SignInTemplate, Session,
       return self.broker.afterSignIn(account)
         .then(function (result) {
           if (! (result && result.halt)) {
-            self.navigate(self._redirectTo || 'settings');
+            self.navigate('settings/two_factor_auth');
           }
 
           return result;
