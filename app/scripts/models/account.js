@@ -28,8 +28,20 @@ define([
     hadProfileImageSetBefore: undefined,
     profileImageId: undefined,
     profileImageUrl: undefined,
+    secretKey: undefined,
     sessionToken: undefined,
+    // Hint for future code spelunkers. sessionTokenContext is a misnomer,
+    // what the field is really used for is to indicate whether the
+    // sessionToken is shared with Sync. It will be set to `fx_desktop_v1` if
+    // the sessionToken is shared. Users cannot sign out of Sync shared
+    // sessions from within the content server, instead they must go into the
+    // Sync panel and disconnect there. The reason this field has not been
+    // renamed is because we cannot gracefully handle rollback without the
+    // side effect of users being able to sign out of their Sync based
+    // session. Data migration within the client goes one way. It's easy to
+    // move forward, very hard to move back.
     sessionTokenContext: undefined,
+    twofa: undefined,
     uid: undefined,
     verified: undefined
   };
@@ -118,7 +130,7 @@ define([
     },
 
     isFromSync: function () {
-      return this.get('sessionTokenContext') === Constants.FX_DESKTOP_CONTEXT;
+      return this.get('sessionTokenContext') === Constants.SESSION_TOKEN_USED_FOR_SYNC;
     },
 
     // returns true if all attributes within ALLOWED_KEYS are defaults
@@ -182,6 +194,15 @@ define([
         // had a custom profile image.
         this.set('hadProfileImageSetBefore', true);
       }
+    },
+
+    turnOnTwoFA: function (key) {
+      this.set('secretKey', key);
+      this.set('twofa', true);
+    },
+
+    isTwoFATurnedOn: function () {
+      return this.get('twofa');
     },
 
     fetchCurrentProfileImage: function () {
@@ -350,15 +371,24 @@ define([
           .then(function (client) {
             profileClient = client;
             var accessToken = self.get('accessToken');
-            return profileClient[method].apply(profileClient, [accessToken].concat(args));
+            if (accessToken) {
+              return profileClient[method].apply(profileClient, [accessToken].concat(args));
+            } else {
+              throw ProfileClient.Errors.toError('UNAUTHORIZED');
+            }
           })
           .fail(function (err) {
-            // If our oauth token has gone stale, retry with a new one
+            // If no oauth token existed, or it has gone stale,
+            // get a new one and retry.
             if (ProfileClient.Errors.is(err, 'UNAUTHORIZED')) {
               return self._fetchProfileOAuthToken()
                 .then(function () {
                   var accessToken = self.get('accessToken');
-                  return profileClient[method].apply(profileClient, [accessToken].concat(args));
+                  if (accessToken) {
+                    return profileClient[method].apply(profileClient, [accessToken].concat(args));
+                  } else {
+                    throw ProfileClient.Errors.toError('UNAUTHORIZED');
+                  }
                 })
                 .fail(function (err) {
                   if (ProfileClient.Errors.is(err, 'UNAUTHORIZED')) {

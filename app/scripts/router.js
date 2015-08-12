@@ -32,6 +32,8 @@ define([
   'views/settings/avatar_camera',
   'views/settings/communication_preferences',
   'views/settings/gravatar_permissions',
+  'views/settings/two_factor_auth',
+  'views/settings/two_factor_auth_success',
   'views/change_password',
   'views/delete_account',
   'views/cookies_disabled',
@@ -69,6 +71,8 @@ function (
   AvatarCameraView,
   CommunicationPreferencesView,
   GravatarPermissions,
+  TwoFactorAuth,
+  TwoFactorAuthSuccess,
   ChangePasswordView,
   DeleteAccountView,
   CookiesDisabledView,
@@ -107,6 +111,8 @@ function (
       'settings/avatar/camera(/)': showView(AvatarCameraView),
       'settings/avatar/gravatar_permissions(/)': showView(GravatarPermissions),
       'settings/communication_preferences(/)': showView(CommunicationPreferencesView),
+      'settings/two_factor_auth(/)': showView(TwoFactorAuth),
+      'settings/two_factor_auth_success': showView(TwoFactorAuthSuccess),
       'change_password(/)': showView(ChangePasswordView),
       'delete_account(/)': showView(DeleteAccountView),
       'legal(/)': showView(LegalView),
@@ -244,6 +250,8 @@ function (
       // rendered for any reason, including if the view was
       // automatically redirected.
       var self = this;
+
+      viewToShow.logScreen();
       return viewToShow.render()
         .then(function (isShown) {
           if (! isShown) {
@@ -254,8 +262,6 @@ function (
           // catch problems with an explicit opacity rule after class is added.
           $('#stage').html(viewToShow.el).addClass('fade-in-forward').css('opacity', 1);
           viewToShow.afterVisible();
-
-          viewToShow.logScreen();
 
           // The user may be scrolled part way down the page
           // on screen transition. Force them to the top of the page.
@@ -315,6 +321,10 @@ function (
       }
       // Instruct Backbone to trigger routing events
       this.navigate(url);
+    },
+
+    getCurrentPage: function () {
+      return Backbone.history.fragment;
     },
 
     fragmentToScreenName: function (fragment) {

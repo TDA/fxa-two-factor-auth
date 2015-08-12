@@ -52,6 +52,7 @@ define([
   'models/auth_brokers/base',
   'models/auth_brokers/fx-desktop',
   'models/auth_brokers/fx-desktop-v2',
+  'models/auth_brokers/fx-ios-v1',
   'models/auth_brokers/first-run',
   'models/auth_brokers/web-channel',
   'models/auth_brokers/redirect',
@@ -99,6 +100,7 @@ function (
   BaseAuthenticationBroker,
   FxDesktopV1AuthenticationBroker,
   FxDesktopV2AuthenticationBroker,
+  FxiOSV1AuthenticationBroker,
   FirstRunAuthenticationBroker,
   WebChannelAuthenticationBroker,
   RedirectAuthenticationBroker,
@@ -110,10 +112,6 @@ function (
   CloseButtonView
 ) {
   'use strict';
-
-  // delay before redirecting to the error page to
-  // ensure metrics are reported to the backend.
-  var ERROR_REDIRECT_TIMEOUT = 1000;
 
   function Start(options) {
     options = options || {};
@@ -130,6 +128,9 @@ function (
   }
 
   Start.prototype = {
+    // delay before redirecting to the error page to
+    // ensure metrics are reported to the backend.
+    ERROR_REDIRECT_TIMEOUT_MS: 1000,
     startApp: function () {
       var self = this;
 
@@ -158,19 +159,18 @@ function (
           self._metrics.logError(err);
         }
 
-        // this extra promise is to ensure the message is printed
-        // to the console in Firefox before redirecting. Without
-        // the delay, the console message is lost, even with
-        // persistent logs enabled. See #2183
-        return p()
+        // give a bit of time to flush the Sentry error logs,
+        // otherwise Safari Mobile redirects too quickly.
+        return p().delay(self.ERROR_REDIRECT_TIMEOUT_MS)
           .then(function () {
-            // give a bit of time to flush the error logs,
-            // otherwise Safari Mobile redirects too quickly.
-            self._window.setTimeout(function () {
-              //Something terrible happened. Let's bail.
-              var redirectTo = self._getErrorPage(err);
-              self._window.location.href = redirectTo;
-            }, ERROR_REDIRECT_TIMEOUT);
+            if (self._metrics) {
+              return self._metrics.flush();
+            }
+          })
+          .then(function () {
+            //Something terrible happened. Let's bail.
+            var redirectTo = self._getErrorPage(err);
+            self._window.location.href = redirectTo;
           });
       });
     },
@@ -413,6 +413,11 @@ function (
             window: this._window,
             relier: this._relier
           });
+        } else if (this._isFxiOSV1()) {
+          this._authenticationBroker = new FxiOSV1AuthenticationBroker({
+            window: this._window,
+            relier: this._relier
+          });
         } else if (this._isWebChannel()) {
           this._authenticationBroker = new WebChannelAuthenticationBroker({
             window: this._window,
@@ -438,7 +443,8 @@ function (
             relier: this._relier,
             assertionLibrary: this._assertionLibrary,
             oAuthClient: this._oAuthClient,
-            session: Session
+            session: Session,
+            metrics: this._metrics
           });
         } else {
           this._authenticationBroker = new BaseAuthenticationBroker({
@@ -606,11 +612,11 @@ function (
     },
 
     _isSync: function () {
-      return this._searchParam('service') === Constants.FX_DESKTOP_SYNC;
+      return this._searchParam('service') === Constants.SYNC_SERVICE;
     },
 
     _isFxDesktopV1: function () {
-      return this._searchParam('context') === Constants.FX_DESKTOP_CONTEXT;
+      return this._searchParam('context') === Constants.FX_DESKTOP_V1_CONTEXT;
     },
 
     _isFxDesktopV2: function () {
@@ -623,11 +629,18 @@ function (
              (this._searchParam('context') === Constants.FX_DESKTOP_V2_CONTEXT);
     },
 
+    _isFxiOSV1: function () {
+      return this._searchParam('context') === Constants.FX_IOS_V1_CONTEXT;
+    },
+
     _isFxDesktop: function () {
       // In addition to the two obvious fx desktop choices, sync is always
       // considered fx-desktop. If service=sync is on the URL, it's considered
       // fx-desktop.
-      return this._isFxDesktopV1() || this._isFxDesktopV2() || this._isSync();
+      return this._isFxDesktopV1() ||
+             this._isFxDesktopV2() ||
+             this._isFxiOSV1() ||
+             this._isSync();
     },
 
     _isFirstRun: function () {

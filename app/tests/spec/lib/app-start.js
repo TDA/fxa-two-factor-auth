@@ -17,6 +17,8 @@ define([
   'lib/storage',
   'models/auth_brokers/base',
   'models/auth_brokers/fx-desktop',
+  'models/auth_brokers/fx-desktop-v2',
+  'models/auth_brokers/fx-ios-v1',
   'models/auth_brokers/iframe',
   'models/auth_brokers/redirect',
   'models/auth_brokers/web-channel',
@@ -33,9 +35,10 @@ define([
   '../../lib/helpers'
 ],
 function (chai, sinon, Raven, AppStart, Session, NullChannel, Constants, p,
-  Url, OAuthErrors, AuthErrors, Storage, BaseBroker, FxDesktopBroker, IframeBroker,
-  RedirectBroker, WebChannelBroker, BaseRelier, FxDesktopRelier, OAuthRelier,
-  Relier, User, Metrics, StorageMetrics, WindowMock, RouterMock, HistoryMock,
+  Url, OAuthErrors, AuthErrors, Storage, BaseBroker, FxDesktopV1Broker,
+  FxDesktopV2Broker, FxiOSV1Broker, IframeBroker, RedirectBroker,
+  WebChannelBroker, BaseRelier, FxDesktopRelier, OAuthRelier, Relier,
+  User, Metrics, StorageMetrics, WindowMock, RouterMock, HistoryMock,
   TestHelpers) {
   'use strict';
 
@@ -93,21 +96,21 @@ function (chai, sinon, Raven, AppStart, Session, NullChannel, Constants, p,
           });
       });
 
-      it('redirects to the `INTERNAL_ERROR_PAGE` if an error occurs', function (done) {
+      it('redirects to the `INTERNAL_ERROR_PAGE` if an error occurs', function () {
         sinon.stub(appStart, 'allResourcesReady', function () {
+          sinon.stub(appStart._metrics, 'flush', function () {
+            return p();
+          });
+
           return p.reject(new Error('boom!'));
         });
 
-        sinon.stub(windowMock, 'setTimeout', function (callback) {
-          setTimeout(callback, 10);
-        });
+        appStart.ERROR_REDIRECT_TIMEOUT_MS = 10;
 
         return appStart.startApp()
           .then(function () {
-            setTimeout(function () {
-              assert.equal(windowMock.location.href, Constants.INTERNAL_ERROR_PAGE);
-              done();
-            }, 20);
+            assert.equal(windowMock.location.href, Constants.INTERNAL_ERROR_PAGE);
+            assert.equal(appStart._metrics.flush.callCount, 1);
           });
       });
 
@@ -185,21 +188,42 @@ function (chai, sinon, Raven, AppStart, Session, NullChannel, Constants, p,
       describe('fx-desktop', function () {
         it('returns an FxDesktop broker if `context=fx_desktop_v1`', function () {
           windowMock.location.search = Url.objToSearchString({
-            context: Constants.FX_DESKTOP_CONTEXT
+            context: Constants.FX_DESKTOP_V1_CONTEXT
           });
 
-          return testExpectedBrokerCreated(FxDesktopBroker);
+          return testExpectedBrokerCreated(FxDesktopV1Broker);
         });
 
         it('returns an FxDesktop broker if `service=sync&context=iframe`', function () {
           windowMock.location.search = Url.objToSearchString({
-            service: Constants.FX_DESKTOP_SYNC,
+            service: Constants.SYNC_SERVICE,
             context: Constants.IFRAME_CONTEXT
           });
 
-          return testExpectedBrokerCreated(FxDesktopBroker);
+          return testExpectedBrokerCreated(FxDesktopV1Broker);
         });
       });
+
+      describe('fx-desktop-v2', function () {
+        it('returns an FxDesktopV2 broker if `context=fx_desktop_v2`', function () {
+          windowMock.location.search = Url.objToSearchString({
+            context: Constants.FX_DESKTOP_V2_CONTEXT
+          });
+
+          return testExpectedBrokerCreated(FxDesktopV2Broker);
+        });
+      });
+
+      describe('fx-ios v1', function () {
+        it('returns an FxiOSV1 broker if `context=fx_ios_v1`', function () {
+          windowMock.location.search = Url.objToSearchString({
+            context: Constants.FX_IOS_V1_CONTEXT
+          });
+
+          return testExpectedBrokerCreated(FxiOSV1Broker);
+        });
+      });
+
 
       describe('web channel', function () {
         it('returns a WebChannel broker if `webChannelId` is present', function () {

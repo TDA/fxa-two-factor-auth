@@ -56,7 +56,7 @@ define([
     'utm_term'
   ];
 
-  var TEN_MINS_MS = 10 * 60 * 1000;
+  var DEFAULT_INACTIVITY_TIMEOUT_MS = 2 * 60 * 1000;
   var NOT_REPORTED_VALUE = 'none';
   var UNKNOWN_CAMPAIGN_ID = 'unknown';
 
@@ -113,20 +113,27 @@ define([
     this._utmSource = options.utmSource || NOT_REPORTED_VALUE;
     this._utmTerm = options.utmTerm || NOT_REPORTED_VALUE;
 
-    this._inactivityFlushMs = options.inactivityFlushMs || TEN_MINS_MS;
+    this._inactivityFlushMs = options.inactivityFlushMs || DEFAULT_INACTIVITY_TIMEOUT_MS;
 
     this._marketingImpressions = {};
 
     this._able = options.able;
     this._env = options.environment || new Environment(this._window);
+
+    this._lastAbLength = 0;
   }
 
   _.extend(Metrics.prototype, Backbone.Events, {
     ALLOWED_FIELDS: ALLOWED_FIELDS,
 
     init: function () {
-      this._flush = _.bind(this.flush, this);
+      this._flush = _.bind(this.flush, this, true);
       $(this._window).on('unload', this._flush);
+      // iOS will not send events once the window is in the background,
+      // meaning the `unload` handler is ineffective. Send events on blur
+      // instead, so events are not lost when a user goes to verify their
+      // email.
+      $(this._window).on('blur', this._flush);
 
       // Set the initial inactivity timeout to clear navigation timing data.
       this._resetInactivityFlushTimeout();
@@ -134,24 +141,29 @@ define([
 
     destroy: function () {
       $(this._window).off('unload', this._flush);
+      $(this._window).off('blur', this._flush);
       this._clearInactivityFlushTimeout();
     },
 
     /**
      * Send the collected data to the backend.
      */
-    flush: function () {
+    flush: function (isPageUnloading) {
       // Inactivity timer is restarted when the next event/timer comes in.
       // This avoids sending empty result sets if the tab is
       // just sitting there open with no activity.
       this._clearInactivityFlushTimeout();
 
+      var self = this;
       var filteredData = this.getFilteredData();
 
-      var url = this._collector + '/metrics';
-      var self = this;
+      if (! this._isFlushRequired(filteredData)) {
+        return p();
+      }
 
-      return this._send(filteredData, url)
+      this._lastAbLength = filteredData.ab.length;
+
+      return this._send(filteredData, isPageUnloading)
         .then(function (sent) {
           if (sent) {
             self._speedTrap.events.clear();
@@ -160,6 +172,12 @@ define([
 
           return sent;
         });
+    },
+
+    _isFlushRequired: function (data) {
+      return data.events.length !== 0 ||
+        Object.keys(data.timers).length !== 0 ||
+        data.ab.length !== this._lastAbLength;
     },
 
     _clearInactivityFlushTimeout: function () {
@@ -234,22 +252,29 @@ define([
       return filteredData;
     },
 
-    _send: function (data, url) {
+    _send: function (data, isPageUnloading) {
       var self = this;
+      var url = this._collector + '/metrics';
       var payload = JSON.stringify(data);
 
       if (this._env.hasSendBeacon()) {
+        // Always use sendBeacon if it is available because:
+        //   1. it works asynchronously, even on unload.
+        //   2. user agents SHOULD make "multiple attempts to transmit the
+        //      data in presence of transient network or server errors".
         return p().then(function () {
           return self._window.navigator.sendBeacon(url, payload);
         });
       }
 
+      // XHR is a fallback option because synchronous XHR has been deprecated,
+      // but we must call it synchronously in the unload case.
       return this._xhr.ajax({
-        async: false,
+        async: ! isPageUnloading,
         type: 'POST',
         url: url,
         contentType: 'application/json',
-        data: JSON.stringify(data)
+        data: payload
       })
       // Boolean return values imitate the behaviour of sendBeacon
       .then(function () {

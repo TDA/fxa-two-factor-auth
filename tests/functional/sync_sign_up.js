@@ -16,6 +16,7 @@ define([
         FxaClient, TestHelpers, FunctionalHelpers, FxDesktopHelpers) {
   var config = intern.config;
   var PAGE_URL = config.fxaContentRoot + 'signup?context=fx_desktop_v1&service=sync';
+  var PAGE_URL_WITH_MIGRATION = PAGE_URL + '&migration=wibble';
 
   var SIGNIN_URL = config.fxaContentRoot + 'signin';
 
@@ -43,7 +44,7 @@ define([
       return FunctionalHelpers.clearBrowserState(this);
     },
 
-    teardown: function () {
+    afterEach: function () {
       var self = this;
 
       return FunctionalHelpers.clearBrowserState(this)
@@ -52,7 +53,7 @@ define([
           // signup page. If a fresh signup page is not forced, the
           // bounced_email tests try to sign up using the Sync broker,
           // resulting in a channel timeout.
-          self.remote
+          return self.remote
             .get(require.toUrl(SIGNIN_URL))
 
             .findByCssSelector('#fxa-signin-header')
@@ -308,6 +309,15 @@ define([
           .then(function (checkedAttribute) {
             assert.equal(checkedAttribute, 'checked');
           })
+        .end();
+    },
+
+    'as a migrating user': function () {
+      return this.remote
+        .get(require.toUrl(PAGE_URL_WITH_MIGRATION))
+        .setFindTimeout(intern.config.pageLoadTimeout)
+        .execute(listenForFxaCommands)
+        .then(FunctionalHelpers.visibleByQSA('.info.nudge'))
         .end();
     }
   });

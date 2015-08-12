@@ -58,7 +58,9 @@ function (chai, sinon, Backbone, Router, SignInView, SignUpView, ReadyView,
       user = new User();
       formPrefill = new FormPrefill();
 
-      broker = new NullBroker();
+      broker = new NullBroker({
+        relier: relier
+      });
 
       able = new Able();
 
@@ -98,9 +100,9 @@ function (chai, sinon, Backbone, Router, SignInView, SignUpView, ReadyView,
 
       it('preserves window search parameters across screen transition',
         function () {
-          windowMock.location.search = '?context=' + Constants.FX_DESKTOP_CONTEXT;
+          windowMock.location.search = '?context=' + Constants.FX_DESKTOP_V1_CONTEXT;
           router.navigate('/forgot');
-          assert.equal(navigateUrl, '/forgot?context=' + Constants.FX_DESKTOP_CONTEXT);
+          assert.equal(navigateUrl, '/forgot?context=' + Constants.FX_DESKTOP_V1_CONTEXT);
           assert.deepEqual(navigateOptions, { trigger: true });
         });
     });
@@ -191,6 +193,28 @@ function (chai, sinon, Backbone, Router, SignInView, SignUpView, ReadyView,
               assert.isTrue(TestHelpers.isEventLogged(metrics, 'screen.signin'));
               assert.isTrue(TestHelpers.isEventLogged(metrics, 'screen.signup'));
             });
+      });
+
+      it('logs events from the view\'s render function after the view name', function () {
+        sinon.stub(signUpView, 'render', function () {
+          var self = this;
+          return p().then(function () {
+            self.logScreenEvent('an_event_name');
+            return true;
+          });
+        });
+
+        return router.showView(signUpView)
+          .then(function () {
+            var screenNameIndex = TestHelpers.indexOfEvent(metrics, 'screen.signup');
+            var screenEventIndex = TestHelpers.indexOfEvent(metrics, 'signup.an_event_name');
+
+            assert.isNumber(screenNameIndex);
+            assert.notEqual(screenNameIndex, -1);
+            assert.isNumber(screenEventIndex);
+            assert.notEqual(screenEventIndex, -1);
+            assert.isTrue(screenNameIndex < screenEventIndex);
+          });
       });
 
       it('calls broker.afterLoaded only after initial view', function () {

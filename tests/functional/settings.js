@@ -48,7 +48,7 @@ define([
               });
     },
 
-    teardown: function () {
+    afterEach: function () {
       return FunctionalHelpers.clearBrowserState(this);
     },
 
@@ -83,7 +83,7 @@ define([
     'sign in to desktop context, go to settings, no way to sign out': function () {
       var self = this;
       return this.remote
-        .get(require.toUrl(SIGNIN_URL + '?context=' + Constants.FX_DESKTOP_CONTEXT))
+        .get(require.toUrl(SIGNIN_URL + '?context=' + Constants.FX_DESKTOP_V1_CONTEXT))
         .setFindTimeout(intern.config.pageLoadTimeout)
         .execute(listenForFxaCommands)
 
@@ -238,7 +238,7 @@ define([
               });
     },
 
-    teardown: function () {
+    afterEach: function () {
       return FunctionalHelpers.clearBrowserState(this);
     },
 

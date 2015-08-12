@@ -34,7 +34,8 @@ function (Cocktail, Session, FormView, BaseView, AvatarMixin,
       return {
         email: email,
         showSignOut: ! account.isFromSync(),
-        communicationPrefsVisible: this._areCommunicationPrefsVisible()
+        communicationPrefsVisible: this._areCommunicationPrefsVisible(),
+        twoFactorAuth: this._isTwoFactorVisible()
       };
     },
 
@@ -99,6 +100,10 @@ function (Cocktail, Session, FormView, BaseView, AvatarMixin,
         this.$('.change-avatar-text').css('visibility', 'visible');
         this.$('.avatar-wrapper > *').wrap('<a href="/settings/avatar/change" class="change-avatar"></a>');
       }
+    },
+
+    _isTwoFactorVisible: function (){
+      return true;
     },
 
     afterVisible: function () {

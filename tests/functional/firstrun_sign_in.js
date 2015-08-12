@@ -25,7 +25,7 @@ define([
   registerSuite({
     name: 'Firstrun sign_in',
 
-    setup: function () {
+    beforeEach: function () {
       email = TestHelpers.createEmail();
       client = new FxaClient(AUTH_SERVER_ROOT, {
         xhr: nodeXMLHttpRequest.XMLHttpRequest
@@ -34,11 +34,7 @@ define([
       return client.signUp(email, PASSWORD, { preVerified: true });
     },
 
-    beforeEach: function () {
-      return FunctionalHelpers.clearBrowserState(this);
-    },
-
-    teardown: function () {
+    afterEach: function () {
       return FunctionalHelpers.clearBrowserState(this);
     },
 
@@ -59,6 +55,29 @@ define([
         .then(FunctionalHelpers.testIsBrowserNotified(self, 'fxaccounts:login'))
 
         .findByCssSelector('#fxa-settings-header')
+        .end()
+
+        // user should be unable to sign out.
+        .then(FunctionalHelpers.noSuchElement(self, '#signout'))
+        .end();
+    },
+
+    'sign in, cancel merge warning': function () {
+      var self = this;
+      return FunctionalHelpers.openPage(this, PAGE_URL, '#fxa-signin-header')
+        .execute(listenForFxaCommands)
+
+        .then(respondToWebChannelMessage(self, 'fxaccounts:can_link_account', { ok: false } ))
+
+
+        .then(function () {
+          return FunctionalHelpers.fillOutSignIn(self, email, PASSWORD);
+        })
+
+        .then(FunctionalHelpers.testIsBrowserNotified(self, 'fxaccounts:can_link_account'))
+
+        // user should not transition to the next screen
+        .then(FunctionalHelpers.noSuchElement(self, '#fxa-settings-header'))
         .end();
     }
   });

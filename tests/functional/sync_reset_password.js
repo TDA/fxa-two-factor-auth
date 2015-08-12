@@ -30,16 +30,13 @@ define([
   registerSuite({
     name: 'Firefox Desktop Sync reset password',
 
-    setup: function () {
+    beforeEach: function () {
       // timeout after 90 seconds
       this.timeout = 90000;
 
       client = new FxaClient(AUTH_SERVER_ROOT, {
         xhr: nodeXMLHttpRequest.XMLHttpRequest
       });
-    },
-
-    beforeEach: function () {
       email = TestHelpers.createEmail();
       user = TestHelpers.emailToUser(email);
       var self = this;
@@ -54,12 +51,12 @@ define([
         });
     },
 
-    teardown: function () {
+    afterEach: function () {
       // clear localStorage to avoid polluting other tests.
       return FunctionalHelpers.clearBrowserState(this);
     },
 
-    'sync reset password, verify same browswer': function () {
+    'sync reset password, verify same browser': function () {
       var self = this;
 
       // verify account

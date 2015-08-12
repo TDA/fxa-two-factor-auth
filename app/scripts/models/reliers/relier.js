@@ -74,6 +74,11 @@ define([
           self.importSearchParam('uid');
           self.importSearchParam('setting');
           self.importSearchParam('entrypoint');
+          if (! self.has('entrypoint')) {
+            // FxDesktop declares both `entryPoint` (capital P) and
+            // `entrypoint` (lowcase p). Normalize to `entrypoint`.
+            self.importSearchParam('entryPoint', 'entrypoint');
+          }
           self.importSearchParam('campaign');
 
           self.importSearchParam('utm_campaign', 'utmCampaign');
@@ -97,7 +102,7 @@ define([
      * Check if the relier is Sync for Firefox Desktop
      */
     isSync: function () {
-      return this.get('service') === Constants.FX_DESKTOP_SYNC;
+      return this.get('service') === Constants.SYNC_SERVICE;
     },
 
     /**

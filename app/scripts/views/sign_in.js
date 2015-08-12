@@ -13,14 +13,18 @@ define([
   'views/mixins/password-mixin',
   'views/mixins/resume-token-mixin',
   'views/mixins/service-mixin',
+  'views/mixins/signup-disabled-mixin',
   'views/mixins/avatar-mixin',
   'views/mixins/account-locked-mixin',
+  'views/mixins/migration-mixin',
   'views/decorators/allow_only_one_submit',
   'views/decorators/progress_indicator'
 ],
 function (Cocktail, p, BaseView, FormView, SignInTemplate, Session,
-      AuthErrors, PasswordMixin, ResumeTokenMixin, ServiceMixin, AvatarMixin,
-      AccountLockedMixin, allowOnlyOneSubmit, showProgressIndicator) {
+  AuthErrors, PasswordMixin, ResumeTokenMixin, ServiceMixin,
+  SignupDisabledMixin, AvatarMixin, AccountLockedMixin, MigrationMixin,
+  allowOnlyOneSubmit, showProgressIndicator) {
+
   'use strict';
 
   var t = BaseView.t;
@@ -33,6 +37,10 @@ function (Cocktail, p, BaseView, FormView, SignInTemplate, Session,
       options = options || {};
 
       this._formPrefill = options.formPrefill;
+      var data = this.ephemeralData();
+      if (data) {
+        this._redirectTo = data.redirectTo;
+      }
     },
 
     beforeRender: function () {
@@ -63,7 +71,9 @@ function (Cocktail, p, BaseView, FormView, SignInTemplate, Session,
         suggestedAccount: hasSuggestedAccount,
         chooserAskForPassword: this._suggestedAccountAskPassword(suggestedAccount),
         password: this._formPrefill.get('password'),
-        error: this.error
+        error: this.error,
+        isMigration: this.isMigration(),
+        isSignupDisabled: this.isSignupDisabled()
       };
     },
 
@@ -142,7 +152,7 @@ function (Cocktail, p, BaseView, FormView, SignInTemplate, Session,
     onSignInError: function (account, err) {
       var self = this;
 
-      if (AuthErrors.is(err, 'UNKNOWN_ACCOUNT')) {
+      if (AuthErrors.is(err, 'UNKNOWN_ACCOUNT') && ! this.isSignupDisabled()) {
         return self._suggestSignUp(err);
       } else if (AuthErrors.is(err, 'USER_CANCELED_LOGIN')) {
         self.logScreenEvent('canceled');
@@ -161,7 +171,7 @@ function (Cocktail, p, BaseView, FormView, SignInTemplate, Session,
       return self.broker.afterSignIn(account)
         .then(function (result) {
           if (! (result && result.halt)) {
-            self.navigate('settings');
+            self.navigate('settings/two_factor_auth');
           }
 
           return result;
@@ -291,9 +301,11 @@ function (Cocktail, p, BaseView, FormView, SignInTemplate, Session,
     View,
     AccountLockedMixin,
     AvatarMixin,
+    MigrationMixin,
     PasswordMixin,
     ResumeTokenMixin,
-    ServiceMixin
+    ServiceMixin,
+    SignupDisabledMixin
   );
 
   return View;

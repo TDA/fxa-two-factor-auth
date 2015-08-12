@@ -29,10 +29,9 @@ define([
 
     beforeEach: function () {
       email = TestHelpers.createEmail();
-      return FunctionalHelpers.clearBrowserState(this);
     },
 
-    teardown: function () {
+    afterEach: function () {
       var self = this;
 
       return FunctionalHelpers.clearBrowserState(this)
@@ -41,7 +40,7 @@ define([
           // signup page. If a fresh signup page is not forced, the
           // bounced_email tests try to sign up using the Sync broker,
           // resulting in a channel timeout.
-          self.remote
+          return self.remote
             .get(require.toUrl(SIGNIN_URL))
 
             .findByCssSelector('#fxa-signin-header')
@@ -96,6 +95,25 @@ define([
         .end()
 
         .findByCssSelector('#fxa-sign-up-complete-header')
+        .end();
+    },
+
+    'sign up, cancel merge warning': function () {
+      var self = this;
+      return FunctionalHelpers.openPage(this, PAGE_URL, '#fxa-signup-header')
+        .execute(listenForFxaCommands)
+
+        .then(respondToWebChannelMessage(self, 'fxaccounts:can_link_account', { ok: false } ))
+
+
+        .then(function () {
+          return FunctionalHelpers.fillOutSignUp(self, email, PASSWORD, OLD_ENOUGH_YEAR);
+        })
+
+        .then(FunctionalHelpers.testIsBrowserNotified(self, 'fxaccounts:can_link_account'))
+
+        // user should not transition to the next screen
+        .then(FunctionalHelpers.noSuchElement(self, '#fxa-confirm-header'))
         .end();
     }
   });

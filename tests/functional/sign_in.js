@@ -15,6 +15,7 @@ define([
   var config = intern.config;
   var AUTH_SERVER_ROOT = config.fxaAuthRoot;
   var PAGE_URL = config.fxaContentRoot + 'signin';
+  var AVATAR_URL = config.fxaContentRoot + 'settings/avatar/change';
   var PASSWORD = 'password';
   var email;
   var accountData;
@@ -35,22 +36,22 @@ define([
   registerSuite({
     name: 'sign_in',
 
-    setup: function () {
+    beforeEach: function () {
       email = TestHelpers.createEmail();
       client = new FxaClient(AUTH_SERVER_ROOT, {
         xhr: nodeXMLHttpRequest.XMLHttpRequest
       });
-      return client.signUp(email, PASSWORD)
+
+      return FunctionalHelpers.clearBrowserState(this)
+        .then(function () {
+          return client.signUp(email, PASSWORD);
+        })
         .then(function (result) {
           accountData = result;
         });
     },
 
-    beforeEach: function () {
-      return FunctionalHelpers.clearBrowserState(this);
-    },
-
-    teardown: function () {
+    afterEach: function () {
       return FunctionalHelpers.clearBrowserState(this);
     },
 
@@ -63,6 +64,19 @@ define([
             assert.ok(resultText.indexOf(email) > -1);
           })
         .end();
+    },
+
+    'redirect to requested page after sign in verified with correct password': function () {
+      var self = this;
+      return verifyUser(email, 0)
+        .then(function () {
+          return FunctionalHelpers.openPage(self, AVATAR_URL, '#fxa-signin-header');
+        })
+        .then(function () {
+          return fillOutSignIn(self, email, PASSWORD)
+            .findById('fxa-avatar-change-header')
+            .end();
+        });
     },
 
     'sign in verified with correct password': function () {

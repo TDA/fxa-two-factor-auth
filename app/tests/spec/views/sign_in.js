@@ -14,6 +14,7 @@ define([
   'lib/metrics',
   'lib/fxa-client',
   'lib/constants',
+  'lib/ephemeral-messages',
   'models/reliers/relier',
   'models/user',
   'models/form-prefill',
@@ -23,8 +24,8 @@ define([
   '../../lib/helpers'
 ],
 function (chai, $, sinon, p, View, Session, AuthErrors, OAuthErrors, Metrics,
-      FxaClient, Constants, Relier, User, FormPrefill, Broker, WindowMock,
-      RouterMock, TestHelpers) {
+      FxaClient, Constants, EphemeralMessages, Relier, User, FormPrefill, Broker,
+      WindowMock, RouterMock, TestHelpers) {
   'use strict';
 
   var assert = chai.assert;
@@ -41,6 +42,7 @@ function (chai, $, sinon, p, View, Session, AuthErrors, OAuthErrors, Metrics,
     var broker;
     var user;
     var formPrefill;
+    var ephemeralMessages;
 
     beforeEach(function () {
       email = TestHelpers.createEmail();
@@ -51,12 +53,15 @@ function (chai, $, sinon, p, View, Session, AuthErrors, OAuthErrors, Metrics,
       windowMock = new WindowMock();
       metrics = new Metrics();
       relier = new Relier();
-      broker = new Broker();
+      broker = new Broker({
+        relier: relier
+      });
       fxaClient = new FxaClient();
       user = new User({
         fxaClient: fxaClient
       });
       formPrefill = new FormPrefill();
+      ephemeralMessages = new EphemeralMessages();
 
       initView();
 
@@ -85,7 +90,8 @@ function (chai, $, sinon, p, View, Session, AuthErrors, OAuthErrors, Metrics,
         relier: relier,
         broker: broker,
         screenName: 'signin',
-        formPrefill: formPrefill
+        formPrefill: formPrefill,
+        ephemeralMessages: ephemeralMessages
       });
     }
 
@@ -141,6 +147,32 @@ function (chai, $, sinon, p, View, Session, AuthErrors, OAuthErrors, Metrics,
             .then(function () {
               assert.equal(view.$('[type=email]').val(), 'testuser@testuser.com');
             });
+      });
+
+      it('displays a message if isMigration returns true', function () {
+        initView();
+        sinon.stub(view, 'isMigration', function (arg) {
+          return true;
+        });
+
+        return view.render()
+          .then(function () {
+            assert.equal(view.$('.info.nudge').html(), 'Migrate your sync data by signing in to your Firefox&nbsp;Account.');
+            view.isMigration.restore();
+          });
+      });
+
+      it('does not display a message if isMigration returns false', function () {
+        initView();
+        sinon.stub(view, 'isMigration', function (arg) {
+          return false;
+        });
+
+        return view.render()
+          .then(function () {
+            assert.lengthOf(view.$('.info.nudge'), 0);
+            view.isMigration.restore();
+          });
       });
     });
 
@@ -200,6 +232,26 @@ function (chai, $, sinon, p, View, Session, AuthErrors, OAuthErrors, Metrics,
                 account: account
               }
             }));
+          });
+      });
+
+      it('redirects users to the page they requested before getting redirected to signin', function () {
+        sinon.stub(user, 'signInAccount', function (account) {
+          account.set('verified', true);
+          return p(account);
+        });
+
+        ephemeralMessages.set('data', {
+          redirectTo: '/settings/avatar/change'
+        });
+
+        initView();
+        sinon.stub(view, 'navigate', function () { });
+
+        return view.render()
+          .then(view.submit.bind(view))
+          .then(function () {
+            assert.isTrue(view.navigate.calledWith('/settings/avatar/change'));
           });
       });
 
@@ -321,14 +373,33 @@ function (chai, $, sinon, p, View, Session, AuthErrors, OAuthErrors, Metrics,
           });
       });
 
-      it('shows message allowing the user to sign up if user enters unknown account', function () {
+      it('show a link to to signup page if user enters unknown account and signup is enabled', function () {
+        sinon.stub(broker, 'isSignupDisabled', function () {
+          return false;
+        });
+
         sinon.stub(view.fxaClient, 'signIn', function () {
           return p.reject(AuthErrors.toError('UNKNOWN_ACCOUNT'));
         });
 
         return view.submit()
           .then(function (msg) {
-            assert.ok(msg.indexOf('/signup') > -1);
+            assert.include(msg, '/signup');
+          });
+      });
+
+      it('do not show a link to signup page if user enters unknown account and signup is disabled', function () {
+        sinon.stub(broker, 'isSignupDisabled', function () {
+          return true;
+        });
+
+        sinon.stub(view.fxaClient, 'signIn', function () {
+          return p.reject(AuthErrors.toError('UNKNOWN_ACCOUNT'));
+        });
+
+        return view.submit()
+          .fail(function (err) {
+            assert.notInclude(AuthErrors.toMessage(err), '/signup');
           });
       });
 
@@ -496,7 +567,7 @@ function (chai, $, sinon, p, View, Session, AuthErrors, OAuthErrors, Metrics,
         var account = user.initAccount({
           sessionToken: 'abc123',
           email: 'a@a.com',
-          sessionTokenContext: Constants.FX_DESKTOP_CONTEXT,
+          sessionTokenContext: Constants.SESSION_TOKEN_USED_FOR_SYNC,
           verified: true,
           accessToken: 'foo'
         });
@@ -531,7 +602,7 @@ function (chai, $, sinon, p, View, Session, AuthErrors, OAuthErrors, Metrics,
         var account = user.initAccount({
           sessionToken: 'abc123',
           email: 'a@a.com',
-          sessionTokenContext: Constants.FX_DESKTOP_CONTEXT,
+          sessionTokenContext: Constants.SESSION_TOKEN_USED_FOR_SYNC,
           verified: true,
           accessToken: 'foo'
         });
@@ -559,7 +630,7 @@ function (chai, $, sinon, p, View, Session, AuthErrors, OAuthErrors, Metrics,
           return user.initAccount({
             sessionToken: 'abc123',
             email: 'a@a.com',
-            sessionTokenContext: Constants.FX_DESKTOP_CONTEXT,
+            sessionTokenContext: Constants.SESSION_TOKEN_USED_FOR_SYNC,
             verified: true,
             accessToken: 'foo'
           });
@@ -582,7 +653,7 @@ function (chai, $, sinon, p, View, Session, AuthErrors, OAuthErrors, Metrics,
         var account = user.initAccount({
           sessionToken: 'abc123',
           email: 'a@a.com',
-          sessionTokenContext: Constants.FX_DESKTOP_CONTEXT,
+          sessionTokenContext: Constants.SESSION_TOKEN_USED_FOR_SYNC,
           verified: true,
           accessToken: 'foo'
         });
@@ -609,7 +680,7 @@ function (chai, $, sinon, p, View, Session, AuthErrors, OAuthErrors, Metrics,
         var account = user.initAccount({
           sessionToken: 'abc123',
           email: 'a@a.com',
-          sessionTokenContext: Constants.FX_DESKTOP_CONTEXT,
+          sessionTokenContext: Constants.SESSION_TOKEN_USED_FOR_SYNC,
           verified: true,
           accessToken: 'foo'
         });
@@ -632,7 +703,7 @@ function (chai, $, sinon, p, View, Session, AuthErrors, OAuthErrors, Metrics,
         var account = user.initAccount({
           sessionToken: 'abc123',
           email: 'a@a.com',
-          sessionTokenContext: Constants.FX_DESKTOP_CONTEXT,
+          sessionTokenContext: Constants.SESSION_TOKEN_USED_FOR_SYNC,
           verified: true,
           accessToken: 'foo'
         });
@@ -678,7 +749,7 @@ function (chai, $, sinon, p, View, Session, AuthErrors, OAuthErrors, Metrics,
           sessionToken: 'abc123',
           email: 'a@a.com',
           verified: true,
-          sessionTokenContext: Constants.FX_DESKTOP_CONTEXT,
+          sessionTokenContext: Constants.SESSION_TOKEN_USED_FOR_SYNC,
           accessToken: 'foo'
         });
 
@@ -704,7 +775,7 @@ function (chai, $, sinon, p, View, Session, AuthErrors, OAuthErrors, Metrics,
         var account = user.initAccount({
           sessionToken: 'abc123',
           email: 'a@a.com',
-          sessionTokenContext: Constants.FX_DESKTOP_CONTEXT,
+          sessionTokenContext: Constants.SESSION_TOKEN_USED_FOR_SYNC,
           verified: true,
           accessToken: 'foo'
         });

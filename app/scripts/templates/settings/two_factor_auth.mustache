@@ -1,0 +1,57 @@
+<div id="main-content" class="card">
+  <header>
+    <h1 id="fxa-two-factor-setup-header">
+      {{#serviceName}}
+        <!-- L10N: For languages structured like English, the second phrase can read "to continue to %(serviceName)s" -->
+        {{#t}}Set up Two Factor Authentication{{/t}} <span class="service">{{#t}}Continue to %(serviceName)s{{/t}}</span>
+      {{/serviceName}}
+      {{^success}}
+        {{^serviceName}}
+          {{#t}}Set up Two Factor Authentication{{/t}}
+        {{/serviceName}}
+      {{/success}}
+
+      {{#success}}
+        {{^serviceName}}
+          {{#t}}Two Factor Authentication Complete{{/t}}
+        {{/serviceName}}
+      {{/success}}
+    </h1>
+    <h1 id="fxa-two-factor-verify-header" class="hidden">
+        {{#t}}Two Factor Authentication{{/t}}
+    </h1>
+  </header>
+
+  <section>
+    {{#error}}
+      <div class="error visible">{{ error }}</div>
+    {{/error}}
+
+    {{#success}}
+      <div class="otp-success hidden">Two Factor Authentication successfully set up.</div>
+    {{/success}}
+
+    {{^success}}
+      {{^error}}
+
+      <form novalidate>
+        <div class="input-row qr-row">
+          <div class="input-help">{{#t}}Please Scan the QR Code with your Google Authenticator app.{{/t}}</div>
+          <div id="qrcode"></div>
+        </div>
+
+        <div class="input-row otp-row">
+          <input id="otp" class="otp" type="text" placeholder="{{#t}}One Time Password{{/t}}" value="{{ otp }}" pattern="\d{6}" required  {{#shouldFocusOTP}}autofocus{{/shouldFocusOTP}} />
+          <div class="input-help input-help-focused">{{#t}}Enter your 6 digit OTP{{/t}}</div>
+          <div class="input-help hidden otp-help">That OTP is not a valid one, please re-enter a valid OTP</div>
+        </div>
+
+        <div class="button-row">
+          <button id="submit-btn" type="submit" class="disabled">{{#t}}Submit{{/t}}</button>
+        </div>
+
+      </form>
+      {{/error}}
+    {{/success}}
+  </section>
+</div>

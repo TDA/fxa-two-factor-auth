@@ -23,6 +23,7 @@ module.exports = function (config, i18n) {
     require('./routes/get-terms-privacy')(i18n),
     require('./routes/get-index')(),
     require('./routes/get-ver.json'),
+    require('./routes/get-version.json'),
     require('./routes/get-config')(i18n),
     require('./routes/get-client.json')(i18n),
     require('./routes/post-metrics')(),
@@ -88,6 +89,8 @@ module.exports = function (config, i18n) {
       '/settings/avatar/camera',
       '/settings/avatar/gravatar_permissions',
       '/settings/communication_preferences',
+      '/settings/two_factor_auth',
+      '/settings/two_factor_auth_success',
       '/change_password',
       '/legal',
       '/cannot_create_account',
@@ -108,7 +111,8 @@ module.exports = function (config, i18n) {
       '/complete_unlock_account',
       '/account_unlock_complete',
       '/signup_permissions',
-      '/signin_permissions'
+      '/signin_permissions',
+      '/unexpected_error'
     ];
 
     var ALLOWED_TO_FRAME = {

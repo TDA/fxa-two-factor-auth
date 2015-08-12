@@ -80,7 +80,9 @@ function (chai, $, sinon, p, View, Coppa, Session, AuthErrors, Metrics,
 
       metrics = new Metrics();
       relier = new Relier();
-      broker = new Broker();
+      broker = new Broker({
+        relier: relier
+      });
       fxaClient = new FxaClient();
       ephemeralMessages = new EphemeralMessages();
       user = new User({
@@ -187,6 +189,48 @@ function (chai, $, sinon, p, View, Coppa, Session, AuthErrors, Metrics,
               assert.equal(view.$('#marketing-email-optin').length, 0);
             });
         });
+      });
+
+      it('displays a message if isMigration returns true', function () {
+        sinon.stub(view, 'isMigration', function (arg) {
+          return true;
+        });
+
+        return view.render()
+          .then(function () {
+            assert.equal(view.$('.info.nudge').html(), 'Migrate your sync data by creating a new Firefox&nbsp;Account.');
+            view.isMigration.restore();
+          });
+      });
+
+      it('does not display a message if isMigration returns false', function () {
+        sinon.stub(view, 'isMigration', function (arg) {
+          return false;
+        });
+
+        return view.render()
+          .then(function () {
+            assert.lengthOf(view.$('.info.nudge'), 0);
+            view.isMigration.restore();
+          });
+      });
+
+      it('sends users to /signin if signup is disabled', function () {
+        sinon.stub(view, 'isSignupDisabled', function () {
+          return true;
+        });
+
+        sinon.stub(view, 'navigate', sinon.spy());
+        sinon.stub(view, 'getSignupDisabledReason', function () {
+          return AuthErrors.toError('IOS_SIGNUP_DISABLED');
+        });
+
+        return view.render()
+          .then(function () {
+            assert.isTrue(view.navigate.calledWith('signin'));
+            var err = view.navigate.args[0][1].error;
+            assert.isTrue(AuthErrors.is(err, 'IOS_SIGNUP_DISABLED'));
+          });
       });
     });
 
@@ -726,6 +770,22 @@ function (chai, $, sinon, p, View, Coppa, Session, AuthErrors, Metrics,
           ableChoose.restore();
           done();
         }, 50);
+      });
+
+      it('only calls able.choose once on multiple `suggestEmail` calls', function () {
+        var sandbox = sinon.sandbox.create();
+
+        var ableChoose = sandbox.stub(view._able, 'choose', function () {
+          return true;
+        });
+
+        view.suggestEmail();
+        view.suggestEmail();
+        view.suggestEmail();
+
+        assert.equal(ableChoose.callCount, 1);
+
+        sandbox.restore();
       });
 
       it('does not show when able chooses false', function (done) {

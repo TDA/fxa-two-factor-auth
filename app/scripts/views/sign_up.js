@@ -1,5 +1,4 @@
-/* This Source Code Form is subject to the terms of the Mozilla Public
- * License, v. 2.0. If a copy of the MPL was not distributed with this
+/* This Source Code Form is subject to the terms of the Mozilla Public * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 define([
@@ -16,10 +15,13 @@ define([
   'views/mixins/service-mixin',
   'views/mixins/checkbox-mixin',
   'views/mixins/resume-token-mixin',
+  'views/mixins/migration-mixin',
+  'views/mixins/signup-disabled-mixin',
   'views/coppa/coppa-date-picker'
 ],
 function (Cocktail, _, p, BaseView, FormView, Template, AuthErrors, mailcheck,
-      Url, PasswordMixin, ServiceMixin, CheckboxMixin, ResumeTokenMixin, CoppaDatePicker) {
+      Url, PasswordMixin, ServiceMixin, CheckboxMixin, ResumeTokenMixin,
+      MigrationMixin, SignupDisabledMixin, CoppaDatePicker) {
   'use strict';
 
   var t = BaseView.t;
@@ -50,6 +52,11 @@ function (Cocktail, _, p, BaseView, FormView, Template, AuthErrors, mailcheck,
     beforeRender: function () {
       if (document.cookie.indexOf('tooyoung') > -1) {
         this.navigate('cannot_create_account');
+        return p(false);
+      } else if (this.isSignupDisabled()) {
+        this.navigate('signin', {
+          error: this.getSignupDisabledReason()
+        });
         return p(false);
       }
 
@@ -149,7 +156,8 @@ function (Cocktail, _, p, BaseView, FormView, Template, AuthErrors, mailcheck,
         shouldFocusEmail: autofocusEl === 'email',
         shouldFocusPassword: autofocusEl === 'password',
         error: this.error,
-        isEmailOptInVisible: this._isEmailOptInEnabled()
+        isEmailOptInVisible: this._isEmailOptInEnabled(),
+        isMigration: this.isMigration()
       };
     },
 
@@ -199,15 +207,27 @@ function (Cocktail, _, p, BaseView, FormView, Template, AuthErrors, mailcheck,
         });
     },
 
-    suggestEmail: function () {
-      var abData = {
-        isMetricsEnabled: this.metrics.isCollectionEnabled(),
-        uniqueUserId: this.user.get('uniqueUserId'),
-        // the window parameter will override any ab testing features
-        forceMailcheck: Url.searchParam('mailcheck', this.window.location.search)
-      };
+    _isMailcheckEnabledValue: undefined,
+    _isMailcheckEnabled: function () {
+      // only check whether mailcheck is enabled once. Otherwise,
+      // an event is added to the able log every time the user
+      // blurs the email field, which could be multiple times.
+      if (typeof this._isMailcheckEnabledValue === 'undefined') {
+        var abData = {
+          isMetricsEnabledValue: this.metrics.isCollectionEnabled(),
+          uniqueUserId: this.user.get('uniqueUserId'),
+          // the window parameter will override any ab testing features
+          forceMailcheck: Url.searchParam('mailcheck', this.window.location.search)
+        };
 
-      if (this._able.choose('mailcheckEnabled', abData)) {
+        this._isMailcheckEnabledValue =
+              this._able.choose('mailcheckEnabled', abData);
+      }
+      return this._isMailcheckEnabledValue;
+    },
+
+    suggestEmail: function () {
+      if (this._isMailcheckEnabled()) {
         mailcheck(this.$el.find('.email'), this.metrics, this.translator);
       }
     },
@@ -342,9 +362,11 @@ function (Cocktail, _, p, BaseView, FormView, Template, AuthErrors, mailcheck,
   Cocktail.mixin(
     View,
     CheckboxMixin,
+    MigrationMixin,
     PasswordMixin,
     ResumeTokenMixin,
-    ServiceMixin
+    ServiceMixin,
+    SignupDisabledMixin
   );
 
   return View;

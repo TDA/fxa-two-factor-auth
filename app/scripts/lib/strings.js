@@ -19,14 +19,17 @@ function () {
   t('By proceeding, you agree to the <a id="service-tos" href="%(termsUri)s">Terms of Service</a> and' +
     '<a id="service-pp" href="%(privacyUri)s">Privacy Notice</a> of %(serviceName)s (%(serviceUri)s).');
 
-  // Will be needed for #2444, the email opt-in
-  t('Get the latest news about Mozilla and Firefox.');
-  t('Communication preferences');
-  t('Email preferences');
-
   // Needed for #2451
   t('Edit profile');
   t('Name');
+
+  // Needed for #2757
+  t('Bookmarks');
+  t('History');
+  t('Tabs');
+  t('Passwords');
+  t('Desktop Add-ons');
+  t('Desktop Preferences');
 
   /**
    * Replace instances of %s and %(name)s with their corresponding values in
