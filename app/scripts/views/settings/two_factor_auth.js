@@ -21,7 +21,10 @@ function (Cocktail, sjcl, p, BaseView, FormView, Template, AuthErrors, QRCode,
   'use strict';
 
   var t = BaseView.t;
-
+  // to escape amdcheck, will need Autherrors
+  // and qrcode in the future
+  AuthErrors = AuthErrors;
+  QRCode = QRCode;
   var View = FormView.extend({
     template: Template,
     className: 'two-factor-auth',
@@ -44,10 +47,9 @@ function (Cocktail, sjcl, p, BaseView, FormView, Template, AuthErrors, QRCode,
         console.log(this.secretKey);
         this.OTP = TwoFA(this.secretKey, true);
         this.twoFA = true;
-      }
-      else {
+      } else {
         // we seriously need to unify the libraries for crypto
-        var randomWord = sjcl.random.randomWords(1,0);
+        var randomWord = sjcl.random.randomWords(1, 0);
         this.OTP = TwoFA(randomWord, false);
       }
       return FormView.prototype.beforeRender.call(this);
@@ -55,7 +57,7 @@ function (Cocktail, sjcl, p, BaseView, FormView, Template, AuthErrors, QRCode,
 
     afterRender: function () {
       var self = this;
-      if(self.secretKey === undefined) {
+      if (self.secretKey === undefined) {
         // first time setup, so generate a
         // QRCode and store the secret key
         var qr = qrcode(10, 'M');
@@ -71,7 +73,7 @@ function (Cocktail, sjcl, p, BaseView, FormView, Template, AuthErrors, QRCode,
         self.$el.find('#fxa-two-factor-verify-header').show();
         // just verification is required, 2fa was already setup
       }
-      console.log("OTP generated is", self.OTP.totp());
+      console.log('OTP generated is', self.OTP.totp());
     },
 
     afterVisible: function () {
@@ -86,7 +88,7 @@ function (Cocktail, sjcl, p, BaseView, FormView, Template, AuthErrors, QRCode,
     context: function () {
     },
 
-    _displayError: function(){
+    _displayError: function () {
       var self = this;
       self.$el.find('.otp-help').removeClass('hidden');
       self.disableForm();
@@ -100,8 +102,8 @@ function (Cocktail, sjcl, p, BaseView, FormView, Template, AuthErrors, QRCode,
       }
     },
 
-    _isValidOTP: function(inputOTP){
-      if(inputOTP === this.OTP.totp()) {
+    _isValidOTP: function (inputOTP) {
+      if (inputOTP === this.OTP.totp()) {
         return true;
       }
       return false;

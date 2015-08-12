@@ -1,4 +1,5 @@
 /*eslint-disable */
+//jscs:disable
 //---------------------------------------------------------------------
 //
 // QR Code Generator for JavaScript

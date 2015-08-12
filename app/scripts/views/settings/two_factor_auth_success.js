@@ -3,12 +3,11 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 /* eslint-disable */
 define([
-  'lib/promise',
   'views/base',
   'views/form',
   'stache!templates/settings/two_factor_auth_success',
 ],
-function (p, BaseView, FormView, Template) {
+function (BaseView, FormView, Template) {
   'use strict';
 
   var t = BaseView.t;
